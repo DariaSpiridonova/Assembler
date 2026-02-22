@@ -15,6 +15,7 @@ Start:
 
     mov si, dx
     call DisplayFrame
+    call PrintText 
     
     call MoveCursorDown
 
@@ -187,6 +188,7 @@ DisplayFrame proc
     ; Сохраним длину в BX для расчетов, а CX подготовим для циклов
     xor ch, ch          ; Теперь CX = точная длина текста
     mov bx, cx          ; BX = длина текста
+    mov STR_LEN, bx
 
     ; --- РИСУЕМ ВЕРХНЮЮ ГРАНИЦУ ---
     mov al, 0DAh        ; Символ '┌'
@@ -200,39 +202,8 @@ DisplayFrame proc
     mov al, 0BFh        ; Символ '┐'
     stosw
     
-    call NextLine
-
-    ; --- РИСУЕМ СРЕДНЮЮ ЧАСТЬ (ТЕКСТ) ---
-    mov ah, 1Fh         ; Атрибут: белый на черном
-    mov al, 0B3h        ; Символ '│'
-    stosw               ; Левая стенка
-    
-    mov si, TEXT_BEGIN
-    push si             
-    mov cx, bx          
-    jcxz skip_t
-draw_text:
-    lodsb               ; Берем символ из DS:SI
-    mov ah, 0Fh         ; Цвет
-    stosw               ; Пишем в видеопамять
-    loop draw_text
-skip_t:
-    pop si              
-
-    mov cx, WID
-    sub cx, bx
-
-    mov al, 219d        ; Закрашенный прямоугольник    
-    mov ah, 03h         ; Цвет
-    rep stosw
-    
-    mov ah, 1Fh         ; Атрибут: белый на черном
-    mov al, 0B3h        ; Символ '│'
-    stosw               ; Правая стенка
-
-
     mov cx, FRAME_HEIGHT
-    sub cx, 3
+    sub cx, 2
 
 draw_side_walls:
     push cx
@@ -271,6 +242,52 @@ draw_side_walls:
 
     ret
 DisplayFrame endp
+
+;***********************************************************************************************
+; Function for printing text in the center of the frame
+;
+; Expects:
+;        SI : the pointer on the begining of the text
+;        BX : string's length
+; Returns: 
+;        SI : the pointer on the symbol after string
+;        DI : the cell number of the symbol from SI
+;***********************************************************************************************
+
+PrintText proc
+
+    push ax 
+    push bx 
+    push dx 
+
+    mov ax, FRAME_HEIGHT
+    shr ax, 1       
+
+    mov bx, 160      
+    mul bx 
+    mov di, START_POZ
+    add di, ax
+    add di, FRAME_WIDTH
+    sub di, STR_LEN
+
+    pop dx 
+    pop bx
+    pop ax
+
+    mov si, TEXT_BEGIN
+    push si             
+    mov cx, bx          
+    jcxz skip_t
+draw_text:
+    lodsb               ; Берем символ из DS:SI
+    mov ah, 0Fh         ; Цвет
+    stosw               ; Пишем в видеопамять
+    loop draw_text
+skip_t:
+    pop si              
+
+    ret 
+PrintText endp
 
 ;***********************************************************************************************
 ; Function for checking frame's parameters
@@ -414,5 +431,6 @@ HEI          dw 1
 NUM_OF_CELLS dw 1
 START_POZ    dw 0
 TEXT_BEGIN   dw 0
+STR_LEN      dw 0
 
 end Start
