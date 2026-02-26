@@ -52,15 +52,17 @@ CheckOthers:
             jne Skip
 
 DisplayNewKey:
-            ; Настраиваем сегменты для работы функций
-            ; push cs
-            ; pop  ds               ; Чтобы функции видели свои переменные (если они есть)
-
             call CalculateStartPoz
             call ConfigureVideoMemory
             ; call CleanWindow
 
             call DisplayFrame
+
+            mov  bp, sp
+            mov  cx, 12          
+            mov  bx, 22          
+
+            call PrintRegisters
             
             ; call MoveCursorDown
 
@@ -79,6 +81,76 @@ Skip:
 Old09Ofs    dw 0 
 Old09Seg    dw 0 
             
+;***********************************************************************************************
+; Function for printing all registers
+;
+; Expects:
+;        BP : stack pointer
+;        CX : number of registers without ss
+;        BX : the initial stack offset for the ip register 
+; Returns: 
+;        -
+;***********************************************************************************************
+
+PrintRegisters proc   
+            push cs
+            pop  ds             ; Чтобы lodsb видел RegNames
+            mov  si, offset RegNames
+
+            push 0b800h
+            pop  es
+            call CalculateStartPoz
+            add  di, 164        ; Первая строка внутри рамки, отступ 2 знака
+NextRegCycle:
+            push cx
+            
+
+            ; ... (вывод имени) ...
+            mov  ah, 3Fh        ; Цвет текста
+            lodsb               
+            stosw
+            lodsb               
+            stosw
+            
+            ; --- Печатаем ": " ---
+            mov  ax, 3F3Ah      ; ':'
+            stosw
+            mov  ax, 3F20h      ; ' '
+            stosw
+
+            push si 
+            mov si, bx
+            mov  dx, ss:[bp + si] ; Берем значение
+            pop si 
+            call PrintDX_Hex
+            
+            ; --- ПЕРЕХОД НА НОВУЮ СТРОКУ ---
+            add  di, 160
+            sub  di, 16
+
+            
+            sub  bx, 2           ; Спускаемся
+            
+            pop  cx
+            loop NextRegCycle
+
+            ; Вывод ss
+            mov  ah, 3Fh
+            mov  al, 's'
+            stosw
+            stosw               
+            
+            mov  ax, 3F3Ah      ; ':'
+            stosw
+            mov  ax, 3F20h      ; ' '
+            stosw
+
+            mov  dx, ss         
+            call PrintDX_Hex    
+
+            ret
+PrintRegisters endp
+
 ;***********************************************************************************************
 ; Function for configuring videomemory
 ;
@@ -114,14 +186,14 @@ DisplayFrame proc
     mov ah, 1Fh         ; Атрибут: белый на черном
     stosw               ; Рисуем угол
     
-    mov cx, 8
+    mov cx, 12
     mov al, 0C4h        ; Символ '─'
     rep stosw           ; Рисуем линию длиной CX
     
     mov al, 0BFh        ; Символ '┐'
     stosw
     
-    mov cx, 12
+    mov cx, 15
     sub cx, 2
 
 draw_side_walls:
@@ -133,7 +205,7 @@ draw_side_walls:
     mov al, 0B3h        ; Символ '│'
     stosw               ; Левая стенка
 
-    mov cx, 8          
+    mov cx, 12          
 
     mov al, 219d        ; Закрашенный прямоугольник    
     mov ah, 03h         ; Цвет
@@ -152,7 +224,7 @@ draw_side_walls:
     mov al, 0C0h        ; Символ '└'
     stosw
     
-    mov cx, 8
+    mov cx, 12
     mov al, 0C4h        ; Символ '─'
     rep stosw
     
@@ -161,6 +233,36 @@ draw_side_walls:
 
     ret
 DisplayFrame endp
+
+;***********************************************************************************************
+; Function for representing a 16-digit number as a string and printing in videomemory
+;
+; Expects:
+;        DX : register's value
+; Returns: 
+;        -
+;***********************************************************************************************
+
+PrintDX_Hex proc
+    push cx ax bx
+    mov cx, 4          ; 4 знака в 16-битном числе
+@@loop:
+    rol dx, 4          ; Крутим DX: верхние 4 бита уходят вниз
+    mov al, dl
+    and al, 0Fh        ; Оставляем только эти 4 бита в AL
+    
+    add al, '0'        ; Пробуем сделать цифру (0-9)
+    cmp al, '9'
+    jbe @@is_digit
+    add al, 7          ; Коррекция для букв A-F
+@@is_digit:
+    mov ah, 3Fh        ; Цвет (желтый на синем)
+    stosw              ; ПЕЧАТАЕМ В ВИДЕОПАМЯТЬ
+    loop @@loop
+    
+    pop bx ax cx
+    ret
+PrintDX_Hex endp
 
 ;***********************************************************************************************
 ; Function for calculating start pozition 
@@ -203,7 +305,7 @@ CalculateStartPoz endp
 NextLine proc 
     add di, 160
     push ax
-    mov ax, 8
+    mov ax, 12
     add ax, 2
     shl ax, 1
     sub di, ax
@@ -292,6 +394,7 @@ CompleteProcForIController endp
 ; Variables
 ;***********************************************************************************************
 
+RegNames db 'ipcsaxcxdxbxspbpsididses'
 HotKeyActive db 0
          
 New09       endp
