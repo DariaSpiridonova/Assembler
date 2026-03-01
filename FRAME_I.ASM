@@ -274,7 +274,7 @@ PrintDX_Hex endp
 ;***********************************************************************************************
 
 CalculateStartPoz proc 
-    push ax
+    push ax bx dx
     mov ax, 25
     sub ax, 12     ; FRAME_HEIGHT    
     shr ax, 1               
@@ -288,7 +288,7 @@ CalculateStartPoz proc
     
     shl ax, 1               
     mov di, ax
-    pop ax
+    pop dx bx ax
 
     ret
 CalculateStartPoz endp
@@ -394,7 +394,7 @@ CompleteProcForIController endp
 ; Variables
 ;***********************************************************************************************
 
-RegNames db 'ipcsaxcxdxbxspbpsididses'
+RegNames db 'csipaxcxdxbxspbpsididses'
 HotKeyActive db 0
          
 New09       endp
